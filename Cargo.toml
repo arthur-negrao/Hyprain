@@ -1,6 +1,13 @@
-[package]
-name = "hyprain"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+members = [
+  "hyprain/hyprain-alttab",
+  "hyprain/hyprain-bar",
+  "hyprain/hyprain-core",
+  "hyprain/hyprain-daemon",
+  "hyprain/hyprain-dock",
+  "hyprain/hyprain-notify",
+  "hyprain/hyprain-settings"
+]
+resolver = "2"
 
-[dependencies]
+[workspace.dependencies]
