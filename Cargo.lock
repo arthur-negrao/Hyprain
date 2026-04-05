@@ -5,3 +5,34 @@ version = 4
 [[package]]
 name = "hyprain"
 version = "0.1.0"
+dependencies = [
+ "hyprain_core",
+]
+
+[[package]]
+name = "hyprain-alttab"
+version = "0.1.0"
+
+[[package]]
+name = "hyprain-bar"
+version = "0.1.0"
+
+[[package]]
+name = "hyprain-daemon"
+version = "0.1.0"
+
+[[package]]
+name = "hyprain-dock"
+version = "0.1.0"
+
+[[package]]
+name = "hyprain-notify"
+version = "0.1.0"
+
+[[package]]
+name = "hyprain-settings"
+version = "0.1.0"
+
+[[package]]
+name = "hyprain_core"
+version = "0.1.0"

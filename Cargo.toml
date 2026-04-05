@@ -1,3 +1,15 @@
+[package]
+name = "hyprain"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "hyprain"
+path = "hyprain/main.rs"
+
+[dependencies]
+hyprain_core = { path = "hyprain/hyprain-core" }
+
 [workspace]
 members = [
   "hyprain/hyprain-alttab",
@@ -11,3 +23,4 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+log = "0.4"
