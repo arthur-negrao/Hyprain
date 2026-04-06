@@ -9,6 +9,10 @@ path = "hyprain/main.rs"
 
 [dependencies]
 hyprain_core = { path = "hyprain/hyprain-core" }
+log = { workspace = true }
+env_logger = { workspace = true }
+tokio = { workspace = true }
+
 
 [workspace]
 members = [
@@ -24,3 +28,5 @@ resolver = "2"
 
 [workspace.dependencies]
 log = "0.4"
+env_logger = "0.11.3"
+tokio = { version = "1", features = ["full"] }

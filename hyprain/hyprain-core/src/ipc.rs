@@ -1,19 +1,25 @@
 use std::{
     env::VarError,
     io::{Read, Write},
-    os::unix::net::UnixStream,
+    os::unix::net::UnixStream as StdUnixStream,
 };
+
+use tokio::io::{AsyncBufReadExt, BufReader as TokioBufReader};
+use tokio::net::UnixStream as TokioUnixStream;
+use tokio::sync::broadcast;
 
 const HYPRLAND_INSTANCE_SIGNATURE: &str = "HYPRLAND_INSTANCE_SIGNATURE";
 const XDG_RUNTIME_DIR: &str = "XDG_RUNTIME_DIR";
 
 fn get_hyprland_instance_signature() -> Result<String, VarError> {
     std::env::var(HYPRLAND_INSTANCE_SIGNATURE)
-        .inspect(|path| println!("The Hyprland Instance Signature is: {path}"))
-        .inspect_err(|err| eprintln!("Error to get the Hyprland instance signature! Error: {err}"))
+        .inspect(|path| log::debug!("The Hyprland Instance Signature is: {path}"))
+        .inspect_err(|err| {
+            log::error!("Error to get the Hyprland instance signature! Error: {err}")
+        })
 }
 
-fn get_hyprland_write_socket() -> Result<String, VarError> {
+fn get_command_socket_path() -> Result<String, VarError> {
     let signature = get_hyprland_instance_signature()?;
 
     let xdg_path = std::env::var(XDG_RUNTIME_DIR)
@@ -25,28 +31,103 @@ fn get_hyprland_write_socket() -> Result<String, VarError> {
     Ok(full_path)
 }
 
-pub struct HyprChannel {
-    write_socket_path: String,
+fn get_event_socket_path() -> Result<String, VarError> {
+    let signature = get_hyprland_instance_signature()?;
+
+    let xdg_path = std::env::var(XDG_RUNTIME_DIR)
+        .inspect(|path| println!("The XDG Runtime Path: {path}"))
+        .inspect_err(|err| eprintln!("Error to get the XDG Runtime Path! Error: {err}"))?;
+
+    let full_path = format!("{}/hypr/{}/.socket2.sock", xdg_path, signature);
+
+    Ok(full_path)
 }
 
-impl HyprChannel {
-    pub fn new() -> Option<Self> {
-        let path = get_hyprland_write_socket().ok()?;
+/// Dispatches synchronous commands to the Hyprland IPC.
+pub struct CommandDispatcher {
+    /// Hyprland command socket path.
+    socket_path: String,
+}
 
-        Some(Self {
-            write_socket_path: path,
-        })
+impl CommandDispatcher {
+    /// Constructor for the CommandDispatcher.
+    pub fn new() -> Option<Self> {
+        let path = get_command_socket_path().ok()?;
+
+        Some(Self { socket_path: path })
     }
 
+    /// Send a command to Hyprland.
+    ///
+    /// Send a request to deliver the `msg` to the Hyprland and receive
+    /// a response or a None if a error occurs to stablish a connection.
     pub fn request(&self, msg: &str) -> Option<String> {
-        let mut stream = UnixStream::connect(&self.write_socket_path).ok()?;
+        let mut stream = StdUnixStream::connect(&self.socket_path).ok()?;
 
         stream.write_all(msg.as_bytes()).ok()?;
 
         let mut response = String::new();
         stream.read_to_string(&mut response).ok()?;
 
-        println!("{}", response);
+        log::debug!("{}", response);
         Some(response)
+    }
+}
+
+/// Listens to the Hyprland event socket and broadcasts messages.
+pub struct EventListener {
+    /// Hyprland socket path to connect.
+    socket_path: String,
+    /// A sender to send the event to all receivers (subscribers).
+    sender: broadcast::Sender<String>,
+}
+
+impl EventListener {
+    /// Constructor for to EventListener.
+    pub fn new() -> Option<Self> {
+        let path = get_event_socket_path().ok()?;
+
+        let (sender, _) = broadcast::channel(100);
+
+        Some(Self {
+            socket_path: path,
+            sender,
+        })
+    }
+
+    /// Get a subscriber to receive events.
+    pub fn listen(&self) -> broadcast::Receiver<String> {
+        self.sender.subscribe()
+    }
+
+    /// Observe the Hyprland events and send them when occurs.
+    pub async fn observe(&mut self) -> tokio::io::Result<()> {
+        let stream = TokioUnixStream::connect(&self.socket_path).await?;
+
+        let mut reader = TokioBufReader::new(stream);
+        let mut buffer = String::new();
+
+        log::debug!("Listening to Hyprland events.");
+
+        loop {
+            buffer.clear();
+
+            let bytes = reader.read_line(&mut buffer).await?;
+
+            if bytes == 0 {
+                log::warn!("Hyprland connection finished!");
+                break;
+            }
+
+            let msg = buffer.trim().to_string();
+            log::debug!("{msg}");
+
+            match self.sender.send(msg) {
+                Ok(_) => log::debug!("Catch a Hyprland event."),
+                Err(_) => log::warn!("No have subscribers to listen the Hyprland event."),
+            }
+        }
+
+        Ok(())
     }
 }
