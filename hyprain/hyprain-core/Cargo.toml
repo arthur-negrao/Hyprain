@@ -6,3 +6,6 @@ edition = "2021"
 [dependencies]
 tokio = { workspace = true }
 log = { workspace = true }
+zbus = { workspace = true }
+serde = { workspace = true }
+zvariant = { workspace = true }
