@@ -30,3 +30,8 @@ resolver = "2"
 log = "0.4"
 env_logger = "0.11.3"
 tokio = { version = "1", features = ["full"] }
+colorsys = { version = "0.7.3" }
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+serde = { version = "1.0"}
+zvariant = { version = "5.0" }
+
